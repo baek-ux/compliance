@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase.js";
+import AdminPanel from "./AdminPanel.jsx";
 import {
   Search, Plus, Pencil, Trash2, X, ShieldCheck, AlertTriangle,
-  Clock, Filter, Wand2, Link2, ChevronDown, LogOut, RefreshCw,
+  Clock, Filter, Wand2, Link2, ChevronDown, LogOut, RefreshCw, Users,
 } from "lucide-react";
 
 /**
@@ -92,7 +93,7 @@ function fromDbRow(row) {
   return out;
 }
 
-export default function ComplianceReviewManager({ userEmail, onSignOut }) {
+export default function ComplianceReviewManager({ userEmail, userId, isAdmin, onSignOut }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -103,6 +104,7 @@ export default function ComplianceReviewManager({ userEmail, onSignOut }) {
   const [editing, setEditing] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [openId, setOpenId] = useState(null);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = async () => {
@@ -180,20 +182,26 @@ export default function ComplianceReviewManager({ userEmail, onSignOut }) {
       <div className="mx-auto max-w-7xl px-5 py-8">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full border-2 border-indigo-800 text-indigo-800">
-              <ShieldCheck size={22} strokeWidth={2.2} />
-            </div>
+            <img src="/ajd-logo.webp" alt="아정당" className="h-8 w-auto" />
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-800">아정당 · 준법감시팀</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-brand">아정당 · 준법감시팀</p>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900">준법심의번호 통합 관리</h1>
               <p className="text-sm text-slate-500">사내 준법감시 · 생명보험협회 · 손해보험협회 심의필</p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <button onClick={() => setEditing(emptyRow())}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-800 px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-900">
-              <Plus size={16} /> 심의 등록
-            </button>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button onClick={() => setAdminOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100">
+                  <Users size={16} /> 직원 관리
+                </button>
+              )}
+              <button onClick={() => setEditing(emptyRow())}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark">
+                <Plus size={16} /> 심의 등록
+              </button>
+            </div>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span className="max-w-[160px] truncate">{userEmail}</span>
               <button onClick={onSignOut} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-slate-100 hover:text-slate-700">
@@ -220,7 +228,7 @@ export default function ComplianceReviewManager({ userEmail, onSignOut }) {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)}
               placeholder="심의번호 · 자료명 · 상품 · 신청자 · URL · 비고 검색"
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:bg-white" />
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white" />
           </div>
           <Filter size={16} className="text-slate-400" />
           <Select value={fCat} onChange={setFCat} options={["전체", ...CATEGORIES]} />
@@ -294,9 +302,11 @@ export default function ComplianceReviewManager({ userEmail, onSignOut }) {
                         <td className="px-3 py-3">
                           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => setEditing({ ...r, usages: [...(r.usages || [])] })}
-                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-indigo-700" title="수정"><Pencil size={15} /></button>
-                            <button onClick={() => setConfirmId(r.id)}
-                              className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="삭제"><Trash2 size={15} /></button>
+                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="수정"><Pencil size={15} /></button>
+                            {isAdmin && (
+                              <button onClick={() => setConfirmId(r.id)}
+                                className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="삭제"><Trash2 size={15} /></button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -317,7 +327,7 @@ export default function ComplianceReviewManager({ userEmail, onSignOut }) {
                                     {r.usages.map((u, i) =>
                                       u.url ? (
                                         <a key={i} href={u.url} target="_blank" rel="noreferrer"
-                                          className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200 hover:text-indigo-700 hover:ring-indigo-300">
+                                          className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200 hover:text-brand-700 hover:ring-brand-400">
                                           <Link2 size={12} /> <span className="font-medium">{u.channel}</span>
                                           <span className="max-w-[280px] truncate text-slate-400">{u.url}</span>
                                         </a>
@@ -352,6 +362,10 @@ export default function ComplianceReviewManager({ userEmail, onSignOut }) {
         </p>
       </div>
 
+      {adminOpen && isAdmin && (
+        <AdminPanel currentUserId={userId} onClose={() => setAdminOpen(false)} />
+      )}
+
       {editing && (
         <EditModal initial={editing} saving={saving} onClose={() => setEditing(null)} onSave={upsert} suggestNo={() => nextInternalNo(rows)} />
       )}
@@ -385,7 +399,7 @@ function Select({ value, onChange, options }) {
   const norm = options.map((o) => (Array.isArray(o) ? o : [o, o]));
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-indigo-400">
+      className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-700 outline-none focus:border-brand-400">
       {norm.map(([v, label]) => (<option key={v} value={v}>{label}</option>))}
     </select>
   );
@@ -416,7 +430,7 @@ function EditModal({ initial, onClose, onSave, suggestNo, saving }) {
                 placeholder={isInternal ? "자동 생성 가능" : "협회 부여 번호 입력"} className={inp} />
               {isInternal && (
                 <button onClick={() => set("review_no", suggestNo())}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 text-xs font-medium text-indigo-700 hover:bg-indigo-100" title="다음 번호 자동 생성">
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-brand-100 bg-brand-50 px-2 text-xs font-medium text-brand-700 hover:bg-brand-100" title="다음 번호 자동 생성">
                   <Wand2 size={13} /> 생성
                 </button>
               )}
@@ -438,14 +452,14 @@ function EditModal({ initial, onClose, onSave, suggestNo, saving }) {
               {(f.usages || []).map((u, i) => (
                 <div key={i} className="flex gap-2">
                   <select value={u.channel} onChange={(e) => updateUsage(i, "channel", e.target.value)}
-                    className="w-28 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm outline-none focus:border-indigo-400">
+                    className="w-28 shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm outline-none focus:border-brand-400">
                     {MEDIA_TYPES.map((m) => (<option key={m} value={m}>{m}</option>))}
                   </select>
                   <input value={u.url} onChange={(e) => updateUsage(i, "url", e.target.value)} placeholder="게시 URL" className={inp} />
                   <button onClick={() => removeUsage(i)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600"><X size={16} /></button>
                 </div>
               ))}
-              <button onClick={addUsage} className="inline-flex items-center gap-1 text-xs font-medium text-indigo-700 hover:text-indigo-900">
+              <button onClick={addUsage} className="inline-flex items-center gap-1 text-xs font-medium text-brand-700 hover:text-brand-dark">
                 <Plus size={13} /> 사용처 추가
               </button>
             </div>
@@ -459,7 +473,7 @@ function EditModal({ initial, onClose, onSave, suggestNo, saving }) {
         <div className="sticky bottom-0 flex justify-end gap-2 border-t border-slate-200 bg-white px-5 py-3">
           <button onClick={onClose} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50">취소</button>
           <button onClick={() => canSave && onSave(f)} disabled={!canSave}
-            className="rounded-lg bg-indigo-800 px-3.5 py-2 text-sm font-semibold text-white hover:bg-indigo-900 disabled:cursor-not-allowed disabled:opacity-40">
+            className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-40">
             {saving ? "저장 중…" : "저장"}
           </button>
         </div>
@@ -468,7 +482,7 @@ function EditModal({ initial, onClose, onSave, suggestNo, saving }) {
   );
 }
 
-const inp = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400";
+const inp = "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400";
 
 function Field({ label, children, full }) {
   return (

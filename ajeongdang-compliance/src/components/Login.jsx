@@ -45,10 +45,8 @@ export default function Login() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full border-2 border-indigo-800 text-indigo-800">
-            <ShieldCheck size={24} strokeWidth={2.2} />
-          </div>
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-800">
+          <img src="/ajd-logo.webp" alt="아정당" className="mb-3 h-10 w-auto" />
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-brand">
             아정당 · 준법감시팀
           </p>
           <h1 className="text-xl font-bold tracking-tight text-slate-900">준법심의번호 관리</h1>
@@ -88,7 +86,7 @@ export default function Login() {
               <button
                 onClick={signIn}
                 disabled={busy}
-                className="mt-5 w-full rounded-lg bg-indigo-800 py-2.5 text-sm font-semibold text-white hover:bg-indigo-900 disabled:opacity-50"
+                className="mt-5 w-full rounded-lg bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
               >
                 {busy ? "확인 중…" : "들어가기"}
               </button>
@@ -135,7 +133,7 @@ export default function Login() {
               <button
                 onClick={sendReset}
                 disabled={busy}
-                className="mt-5 w-full rounded-lg bg-indigo-800 py-2.5 text-sm font-semibold text-white hover:bg-indigo-900 disabled:opacity-50"
+                className="mt-5 w-full rounded-lg bg-brand py-2.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50"
               >
                 {busy ? "발송 중…" : "재설정 메일 보내기"}
               </button>
@@ -152,7 +150,7 @@ export default function Login() {
 }
 
 const field =
-  "w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-indigo-400 focus:bg-white";
+  "w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-brand-400 focus:bg-white";
 
 function InputIcon({ icon: Icon, children }) {
   return (

@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* 아정당 브랜드 컬러. 웹 기준 #145CE6.
+   50~100/400/700/dark 계열은 #145CE6에서 파생한 근사값(공식 팔레트 아님). */
+@theme {
+  --color-brand-50: #eaf1fd;
+  --color-brand-100: #d2e2fb;
+  --color-brand-400: #5b8ef0;
+  --color-brand-700: #1149b8;
+  --color-brand: #145CE6;
+  --color-brand-dark: #0e3f9e;
+}
+
 html,
 body,
 #root {
