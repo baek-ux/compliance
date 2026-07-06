@@ -1,105 +1,79 @@
-# 아정당 준법심의번호 통합 관리
+# 아정당 준법심의번호 통합 관리 (Google 로그인 버전)
 
-사내 준법감시 + 생명보험협회/손해보험협회 광고심의필 통합 관리 도구.
-Vite + React + Tailwind v4 + Supabase(Auth · Postgres · Edge Functions) / Vercel.
+사내 준법감시 + 생명/손해보험협회 광고심의필 통합 관리 도구.
+Vite + React + Tailwind v4 + Supabase(Auth: Google / Postgres) / Vercel.
 
-## 기능
-- 심의구분 통합 + 매체/상태/검색 필터, 유효기간 만료 추적, 사용처(채널+URL) 추적
-- 사내준법 번호 자동 생성(아정당 준법심의필 제2026-0001호)
-- 개인별 회사 이메일 로그인 + 초대 메일 기반 초기 비밀번호 설정
-- 역할 기반 권한
-  - 관리자(admin): 직원 초대/삭제, 역할 변경, 관리자 인계, 심의 등록/수정/삭제
-  - 직원(staff): 심의 등록/수정만 (삭제 불가)
-
----
+## 인증 · 권한
+- **로그인 = 회사 Google 계정(ajd.co.kr)** 만. 그 외 도메인은 자동 로그아웃.
+- 역할 3단계:
+  - **viewer(뷰어)** — 열람만. 첫 로그인 시 기본값.
+  - **editor(편집자)** — 심의 등록·수정 (삭제 X).
+  - **admin(관리자)** — 삭제 + 역할 부여/인계. `alic@ajd.co.kr` 1명(트리거 자동).
+- 전산관리자(너)는 앱 역할이 아니라 Supabase 접근 권한으로 존재 → 비상 시 SQL로 복구.
 
 ## 1. 로컬 실행
     npm install
-    cp .env.example .env      # Supabase URL / anon key 입력
+    cp .env.example .env      # Supabase URL / anon key
     npm run dev
 
 ## 2. Supabase 준비
-1. supabase.com 프로젝트 생성
-2. SQL Editor 에 supabase/schema.sql 실행 → 테이블 + profiles(역할) + RLS + 함수 생성
-3. Settings > API 에서 Project URL, anon public 키 복사 → .env 및 Vercel 환경변수
+1. SQL Editor 에 supabase/schema.sql 실행 (테이블 + 3단계 역할 + RLS + 함수)
+2. Settings > API 의 Project URL, anon public 키 → .env / Vercel 환경변수
 
-### 2-1. 가입 차단 + 최초 관리자
-- Authentication > Providers > Email : 공개 가입(Allow new users to sign up) 끄기
-- 최초 관리자: Authentication > Users > Invite user 로 kane@ajd.co.kr 초대
-  - schema.sql 트리거가 이 이메일을 자동으로 admin 으로 지정.
-  - 다른 이메일로 바꾸려면 schema.sql 의 handle_new_user() 안 kane@ajd.co.kr 수정.
-- 이후 직원 초대는 앱 안의 "직원 관리" 버튼(관리자 전용)에서 진행.
+## 3. Google 로그인 연결 (핵심)
+GCP 와 Supabase 를 서로 물려줘야 한다.
 
-### 2-2. 초대/재설정 메일이 앱으로 돌아오게
-- Authentication > URL Configuration
-  - Site URL = 배포 도메인 (예: https://ajeongdang-compliance.vercel.app)
-  - Redirect URLs 에 배포 도메인 + http://localhost:5173 추가
-- 메일 발송(중요): Supabase 기본 내장 메일은 발송량이 매우 제한적(시간당 소량).
-  직원 여러 명 초대 시 지연/누락 가능 → Authentication > SMTP Settings 에
-  회사 메일/SendGrid/Resend 등 SMTP 연결 권장.
-  폴백: 관리자가 대시보드 Users 에서 직접 Invite/재발송.
+### 3-1. GCP (console.cloud.google.com)
+- 프로젝트(예: ajd-compliance-auth) → "Google 인증 플랫폼"
+- 대상(Audience) = **Internal** (ajd.co.kr 조직 전용)
+- 클라이언트 생성: 유형 "웹 애플리케이션"
+- **승인된 리디렉션 URI** 에 Supabase 콜백 추가:
+  `https://<프로젝트ref>.supabase.co/auth/v1/callback`
+- 발급된 **Client ID / Client Secret** 복사
 
-## 3. Edge Functions 배포 (직원 초대/삭제용)
-직원 계정 생성/삭제는 service_role 권한이 필요 → 서버(Edge Function)에서만 처리.
-(역할 변경/관리자 인계는 Function 없이 DB 함수/정책으로 처리 → 배포 대상 아님)
+### 3-2. Supabase (Authentication > Providers > Google)
+- Client ID / Client Secret 붙여넣기 → **Enable** 토글 ON → Save
+- 화면의 Callback URL 이 3-1의 리디렉션 URI 와 일치하는지 확인
 
-    # 1) Supabase CLI 설치 (한 번만)
-    npm install -g supabase          # 또는 brew install supabase/tap/supabase
-
-    # 2) 로그인 & 프로젝트 연결
-    supabase login                   # 브라우저 인증
-    supabase link --project-ref <프로젝트-ref>   # Settings > General 에서 ref 확인
-
-    # 3) 두 함수 배포
-    supabase functions deploy invite-user
-    supabase functions deploy delete-user
-
-- SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY 는 Edge Function 실행 환경에
-  자동 주입되므로 원칙적으로 별도 설정 불필요. 못 찾으면 수동 등록:
-      supabase secrets set SUPABASE_SERVICE_ROLE_KEY=<service_role 키>
-  service_role 키는 절대 프론트엔드/깃에 넣지 말 것. [자동 주입 동작은 버전에 따라 다를 수 있어 확인 권장]
+### 3-3. URL Configuration (Authentication > URL Configuration)
+- **Site URL** = `https://compliance-sandy.vercel.app`
+- **Redirect URLs** 에 추가:
+  - `https://compliance-sandy.vercel.app/**`
+  - `http://localhost:5173/**` (로컬 테스트용)
 
 ## 4. Vercel 배포
-1. GitHub 레포 푸시 → Vercel Import (Framework: Vite)
-2. 레포 최상단에 package.json 이 오게 올리거나, 폴더째 올렸다면
-   Settings > Build and Deployment > Root Directory 를 ajeongdang-compliance 로 지정
-3. Environment Variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY 등록 후 Redeploy
-4. 배포 도메인을 2-2 의 Site URL / Redirect URLs 에 반영
+- GitHub 푸시 → Vercel Import (Framework: Vite)
+- 폴더째 올렸으면 Settings > Root Directory 를 ajeongdang-compliance 로
+- Environment Variables: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 
----
+## 5. 최고관리자(alic) 지정
+- schema.sql 트리거가 `alic@ajd.co.kr` 첫 로그인 시 자동 admin.
+- 혹시 admin 이 안 잡히면 SQL 한 줄로 보정:
+      update public.profiles set role='admin' where email='alic@ajd.co.kr';
+- 다른 사람을 최고관리자로 하려면 schema.sql 의 handle_new_user() 안 이메일 수정.
 
 ## 권한 구조 (요약)
-| 동작 | 직원(staff) | 관리자(admin) | 강제 방식 |
-|---|---|---|---|
-| 심의 조회/등록/수정 | O | O | RLS |
-| 심의 삭제 | X | O | RLS (is_admin) |
-| 직원 초대/삭제 | X | O | Edge Function + 서버 admin 검증 |
-| 역할 변경 | X | O | RLS (profiles update = admin) |
-| 관리자 인계 | X | O | RPC transfer_admin (원자적) |
+| 동작 | viewer | editor | admin | 강제 |
+|---|---|---|---|---|
+| 조회 | O | O | O | RLS |
+| 등록·수정 | X | O | O | RLS can_edit() |
+| 삭제 | X | X | O | RLS is_admin() |
+| 역할 부여·인계 | X | X | O | RLS + RPC transfer_admin |
 
-- 버튼 숨김뿐 아니라 DB(RLS/함수)에서 막음. 직원이 API로 직접 삭제 호출해도 거부됨.
-- 관리자 인계는 "본인=직원, 대상=관리자"를 한 트랜잭션으로 처리 → 관리자 0명 사고 방지.
-
-## 브랜드
-- 웹 컬러 #145CE6 (src/index.css 의 @theme --color-brand). 파생 톤(50~dark)은 근사값.
-- 로고 public/ajd-logo.webp
+- 버튼 숨김뿐 아니라 DB(RLS)에서 막음. 뷰어가 API로 직접 등록/삭제 호출해도 거부.
+- 직원 목록은 "한 번이라도 로그인한" 사람만 나타남(구글 로그인 시 자동 생성, 기본 viewer).
+- 관리자가 "차단"해도 회사 구글 계정이면 재로그인 시 viewer 로 재생성됨(도메인 허용 정책상). 완전 차단은 화이트리스트가 필요하나 현재 정책은 "사내 전원 열람 허용".
 
 ## 한계
-- 사내 번호 자동 생성은 클라이언트 최댓값+1(미리보기). 동시 발급 충돌 우려 시 Postgres 시퀀스/RPC 권장.
-- 삭제는 물리 삭제. 이력 보존 필요 시 result 에 "폐기" 상태 추가해 상태 변경 운영 권장.
-- anon key 공개는 정상. 실제 보호는 RLS + 가입 차단이 담당.
+- 사내 번호 자동 생성은 클라이언트 최댓값+1(미리보기). 동시 발급 충돌 우려 시 시퀀스/RPC 권장.
+- 삭제는 물리 삭제. 이력 보존이 필요하면 result 에 "폐기" 상태 추가 운영 권장.
 
 ## 파일 구조
     src/
-      App.jsx                          세션+역할 게이트
+      App.jsx                        세션+도메인검증+역할 게이트
       lib/supabase.js
       components/
-        Login.jsx
-        ResetPassword.jsx              초대/재설정 후 비번 설정
-        ComplianceReviewManager.jsx    메인 (권한별 UI)
-        AdminPanel.jsx                 직원/관리자 관리 (admin 전용)
-    supabase/
-      schema.sql
-      functions/
-        invite-user/index.ts
-        delete-user/index.ts
+        Login.jsx                    Google 로그인 버튼
+        ComplianceReviewManager.jsx  메인 (권한별 UI)
+        AdminPanel.jsx               역할 관리 (admin 전용)
+    supabase/schema.sql              테이블 + 3단계 역할 + RLS + transfer_admin

@@ -93,7 +93,9 @@ function fromDbRow(row) {
   return out;
 }
 
-export default function ComplianceReviewManager({ userEmail, userId, isAdmin, onSignOut }) {
+export default function ComplianceReviewManager({ userEmail, userId, role, onSignOut }) {
+  const isAdmin = role === "admin";
+  const canEdit = role === "admin" || role === "editor";
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
@@ -197,10 +199,12 @@ export default function ComplianceReviewManager({ userEmail, userId, isAdmin, on
                   <Users size={16} /> 직원 관리
                 </button>
               )}
-              <button onClick={() => setEditing(emptyRow())}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark">
-                <Plus size={16} /> 심의 등록
-              </button>
+              {canEdit && (
+                <button onClick={() => setEditing(emptyRow())}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark">
+                  <Plus size={16} /> 심의 등록
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span className="max-w-[160px] truncate">{userEmail}</span>
@@ -301,12 +305,15 @@ export default function ComplianceReviewManager({ userEmail, userId, isAdmin, on
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => setEditing({ ...r, usages: [...(r.usages || [])] })}
-                              className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="수정"><Pencil size={15} /></button>
+                            {canEdit && (
+                              <button onClick={() => setEditing({ ...r, usages: [...(r.usages || [])] })}
+                                className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-700" title="수정"><Pencil size={15} /></button>
+                            )}
                             {isAdmin && (
                               <button onClick={() => setConfirmId(r.id)}
                                 className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" title="삭제"><Trash2 size={15} /></button>
                             )}
+                            {!canEdit && !isAdmin && <span className="text-xs text-slate-300">열람</span>}
                           </div>
                         </td>
                       </tr>
