@@ -1,25 +1,12 @@
 import React, { useState } from "react";
-import { supabase } from "../lib/supabase.js";
+import { startLogin } from "../lib/naverworks.js";
 
-export default function Login({ domainError }) {
+export default function Login({ domainError, loginError }) {
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState(null);
 
-  const signIn = async () => {
+  const signIn = () => {
     setBusy(true);
-    setErr(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "custom:naverworks",
-      options: {
-        redirectTo: window.location.origin,
-        scopes: "openid email profile",
-      },
-    });
-    if (error) {
-      setBusy(false);
-      setErr("로그인을 시작할 수 없습니다. 잠시 후 다시 시도하세요.");
-    }
-    // 성공 시 구글로 리다이렉트되므로 이후 처리는 App 에서
+    startLogin(); // 네이버웍스 인증 페이지로 이동
   };
 
   return (
@@ -39,9 +26,9 @@ export default function Login({ domainError }) {
               아정당(ajd.co.kr) 회사 계정으로만 로그인할 수 있습니다. 개인 계정으로는 접근이 제한됩니다.
             </div>
           )}
-          {err && (
+          {loginError && (
             <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">
-              {err}
+              {loginError}
             </div>
           )}
 
@@ -61,4 +48,3 @@ export default function Login({ domainError }) {
     </div>
   );
 }
-

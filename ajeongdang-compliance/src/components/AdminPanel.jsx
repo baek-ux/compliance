@@ -1,54 +1,68 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase.js";
-import { X, ShieldCheck, PenSquare, Eye, Crown, RefreshCw } from "lucide-react";
+import { X, ShieldCheck, PenSquare, Eye, Trash2, Plus, RefreshCw } from "lucide-react";
 
 /**
- * 역할 관리 (admin=alic 전용)
- * - 역할 3단계: viewer(열람) / editor(등록·수정) / admin(삭제·역할부여)
- * - 목록은 "한 번이라도 로그인한" 사용자만 나타남(구글 로그인 시 자동 생성)
- * - 승격/강등: profiles.role UPDATE (RLS: admin만)
- * - 관리자 인계: RPC transfer_admin (본인=editor, 대상=admin, 원자적)
+ * 역할 관리 (admin 전용) — email 기반 app_roles 테이블
+ * 역할: viewer(열람) / editor(등록·수정) / admin(삭제·역할부여)
+ * - 네이버웍스 직접 로그인이라 사용자 id(uuid) 없음 → email 로 관리
+ * - 로그인 안 한 사람도 미리 email 로 등록 가능(선등록)
+ * - alic(adminEmail)은 코드상 항상 admin (목록에 없어도 관리자)
  */
 const ROLE_LABEL = { admin: "관리자", editor: "편집자", viewer: "뷰어" };
+const DOMAIN = "ajd.co.kr";
 
-export default function AdminPanel({ currentUserId, onClose }) {
-  const [users, setUsers] = useState([]);
+export default function AdminPanel({ currentEmail, adminEmail, onClose }) {
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState(null);
-  const [confirmTransfer, setConfirmTransfer] = useState(null);
+  const [newEmail, setNewEmail] = useState("");
+  const [newRole, setNewRole] = useState("editor");
 
   const load = async () => {
     setLoading(true);
     setErr(null);
     const { data, error } = await supabase
-      .from("profiles")
-      .select("id, email, role, created_at")
+      .from("app_roles")
+      .select("email, role, created_at")
       .order("created_at", { ascending: true });
     if (error) setErr(error.message);
-    else setUsers(data || []);
+    else setRows(data || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
-  const setRole = async (u, role) => {
-    setBusy(true);
-    setNotice(null);
-    const { error } = await supabase.from("profiles").update({ role }).eq("id", u.id);
+  const setRole = async (email, role) => {
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.from("app_roles").update({ role }).eq("email", email);
     setBusy(false);
-    if (error) setNotice({ type: "error", text: "역할 변경 실패: " + error.message });
-    else { setNotice({ type: "ok", text: `${u.email} → ${ROLE_LABEL[role]}` }); load(); }
+    if (error) setNotice({ type: "error", text: "변경 실패: " + error.message });
+    else { setNotice({ type: "ok", text: `${email} → ${ROLE_LABEL[role]}` }); load(); }
   };
 
-  const transfer = async (u) => {
-    setBusy(true);
-    setNotice(null);
-    const { error } = await supabase.rpc("transfer_admin", { target_id: u.id });
+  const removeRow = async (email) => {
+    setBusy(true); setNotice(null);
+    const { error } = await supabase.from("app_roles").delete().eq("email", email);
     setBusy(false);
-    setConfirmTransfer(null);
-    if (error) setNotice({ type: "error", text: "인계 실패: " + error.message });
-    else { setNotice({ type: "ok", text: `${u.email} 에게 관리자를 인계했습니다. 본인은 편집자가 됩니다.` }); load(); }
+    if (error) setNotice({ type: "error", text: "삭제 실패: " + error.message });
+    else { setNotice({ type: "ok", text: `${email} 권한 제거(뷰어로 강등)` }); load(); }
+  };
+
+  const addRow = async () => {
+    const email = newEmail.trim().toLowerCase();
+    if (!email) return;
+    if (!email.endsWith("@" + DOMAIN)) {
+      setNotice({ type: "error", text: `${DOMAIN} 이메일만 등록할 수 있습니다.` });
+      return;
+    }
+    setBusy(true); setNotice(null);
+    // upsert: 이미 있으면 역할만 갱신
+    const { error } = await supabase.from("app_roles").upsert({ email, role: newRole }, { onConflict: "email" });
+    setBusy(false);
+    if (error) setNotice({ type: "error", text: "등록 실패: " + error.message });
+    else { setNotice({ type: "ok", text: `${email} → ${ROLE_LABEL[newRole]} 등록` }); setNewEmail(""); load(); }
   };
 
   return (
@@ -64,8 +78,27 @@ export default function AdminPanel({ currentUserId, onClose }) {
 
         <div className="p-5">
           <div className="mb-4 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 ring-1 ring-slate-200">
-            직원은 회사 구글 계정으로 <b>처음 로그인하면 자동으로 목록에 나타나며 기본 "뷰어"</b>입니다.
-            등록·수정이 필요한 사람을 "편집자"로 올려주세요. 삭제 권한은 관리자만 가집니다.
+            등록·수정이 필요한 사람의 회사 이메일을 <b>편집자</b>로 추가하세요. 목록에 없는 직원은 로그인 시 자동으로 <b>뷰어(열람)</b>입니다.
+            로그인 전에도 미리 등록해 둘 수 있습니다. 최고관리자(<b>{adminEmail}</b>)는 항상 관리자입니다.
+          </div>
+
+          {/* 선등록 */}
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 p-3">
+            <input
+              type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="이름@ajd.co.kr"
+              className="min-w-[180px] flex-1 rounded-md border border-slate-300 px-2.5 py-1.5 text-sm outline-none focus:border-brand"
+            />
+            <select value={newRole} onChange={(e) => setNewRole(e.target.value)}
+              className="rounded-md border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="editor">편집자</option>
+              <option value="viewer">뷰어</option>
+              <option value="admin">관리자</option>
+            </select>
+            <button onClick={addRow} disabled={busy}
+              className="inline-flex items-center gap-1 rounded-md bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50">
+              <Plus size={14} /> 추가
+            </button>
           </div>
 
           {notice && (
@@ -78,14 +111,15 @@ export default function AdminPanel({ currentUserId, onClose }) {
             <div className="py-8 text-center text-sm text-slate-400">불러오는 중…</div>
           ) : err ? (
             <div className="py-8 text-center text-sm text-red-500">{err}</div>
-          ) : users.length === 0 ? (
-            <div className="py-8 text-center text-sm text-slate-400">아직 로그인한 사용자가 없습니다.</div>
+          ) : rows.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-400">등록된 편집자/관리자가 없습니다. 위에서 추가하세요.</div>
           ) : (
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
-              {users.map((u) => {
-                const isMe = u.id === currentUserId;
+              {rows.map((u) => {
+                const isMe = u.email === currentEmail;
+                const isRootAdmin = u.email === adminEmail;
                 return (
-                  <div key={u.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div key={u.email} className="flex items-center justify-between gap-3 px-4 py-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <RoleIcon role={u.role} />
                       <div className="min-w-0">
@@ -95,25 +129,26 @@ export default function AdminPanel({ currentUserId, onClose }) {
                         <div className="text-xs text-slate-400">{ROLE_LABEL[u.role] || u.role}</div>
                       </div>
                     </div>
-                    {!isMe && u.role !== "admin" && (
+                    {!isRootAdmin && (
                       <div className="flex shrink-0 items-center gap-1">
                         {u.role === "viewer" ? (
-                          <button onClick={() => setRole(u, "editor")} disabled={busy}
+                          <button onClick={() => setRole(u.email, "editor")} disabled={busy}
                             className="inline-flex items-center gap-1 rounded-md border border-brand-100 bg-brand-50 px-2 py-1 text-xs font-medium text-brand-700 hover:bg-brand-100">
-                            <PenSquare size={12} /> 편집자 승격
+                            <PenSquare size={12} /> 편집자
                           </button>
                         ) : (
-                          <button onClick={() => setRole(u, "viewer")} disabled={busy}
+                          <button onClick={() => setRole(u.email, "viewer")} disabled={busy}
                             className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">
                             <Eye size={12} /> 뷰어로
                           </button>
                         )}
-                        <button onClick={() => setConfirmTransfer(u)} disabled={busy}
-                          className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100" title="관리자 인계(본인은 편집자가 됨)">
-                          <Crown size={12} /> 인계
+                        <button onClick={() => removeRow(u.email)} disabled={busy}
+                          className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50" title="목록에서 제거(뷰어로)">
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     )}
+                    {isRootAdmin && <span className="shrink-0 text-xs text-brand">최고관리자</span>}
                   </div>
                 );
               })}
@@ -121,26 +156,11 @@ export default function AdminPanel({ currentUserId, onClose }) {
           )}
 
           <p className="mt-4 text-xs text-slate-400">
-            · 승격/강등은 즉시 적용됩니다. · 관리자 인계 시 본인은 편집자로 내려갑니다.
-            · 계정 자체 차단이 필요하면 관리자(전산)에게 문의하세요(구글 로그인은 재로그인 시 뷰어로 재생성됩니다).
+            · 목록에서 제거하면 그 사람은 다음 로그인부터 뷰어(열람만)로 돌아갑니다.
+            · 최고관리자(<b>{adminEmail}</b>)는 코드에 고정되어 목록에서 바꿀 수 없습니다.
           </p>
         </div>
       </div>
-
-      {confirmTransfer && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/40 p-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
-            <h4 className="text-base font-semibold text-slate-900">관리자를 인계할까요?</h4>
-            <p className="mt-1 text-sm text-slate-500">
-              {confirmTransfer.email} 이(가) 관리자가 되고, <b>본인은 편집자로 내려갑니다.</b> 되돌리려면 새 관리자가 다시 인계해야 합니다.
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setConfirmTransfer(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50">취소</button>
-              <button onClick={() => transfer(confirmTransfer)} disabled={busy} className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-dark disabled:opacity-50">인계</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -93,7 +93,7 @@ function fromDbRow(row) {
   return out;
 }
 
-export default function ComplianceReviewManager({ userEmail, userId, role, onSignOut }) {
+export default function ComplianceReviewManager({ userEmail, role, adminEmail, onSignOut }) {
   const isAdmin = role === "admin";
   const canEdit = role === "admin" || role === "editor";
   const [rows, setRows] = useState([]);
@@ -370,7 +370,7 @@ export default function ComplianceReviewManager({ userEmail, userId, role, onSig
       </div>
 
       {adminOpen && isAdmin && (
-        <AdminPanel currentUserId={userId} onClose={() => setAdminOpen(false)} />
+        <AdminPanel currentEmail={userEmail} adminEmail={adminEmail} onClose={() => setAdminOpen(false)} />
       )}
 
       {editing && (
