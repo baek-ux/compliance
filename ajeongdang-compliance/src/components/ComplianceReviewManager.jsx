@@ -15,6 +15,7 @@ import { exportRows, downloadUploadTemplate, parseUploadFile } from "../lib/exce
  */
 
 const ORG_PREFIX = "아정당 준법심의필"; // ← 주체명 변경 시 여기만 수정
+const FIXED_APPROVER = "유석일"; // 준법감시인(대행). 변경 시 여기만 수정
 
 const CATEGORIES = ["사내준법", "생보협회", "손보협회"];
 const INTERNAL_CAT = "사내준법";
@@ -77,7 +78,7 @@ const ROW_ACCENT = {
 const emptyRow = (category = "사내준법") => ({
   id: null, category, review_no: "", title: "", media_type: "블로그",
   product: "", applied_date: iso(new Date()), reviewed_date: "", result: "심사중",
-  valid_from: "", valid_to: "", applicant: "", approver: "", usages: [], note: "",
+  valid_from: "", valid_to: "", applicant: "", approver: FIXED_APPROVER, usages: [], note: "",
 });
 
 // 빈 날짜 문자열 → null (date 컬럼 대응), 화면용 필드 제거
@@ -129,11 +130,12 @@ export default function ComplianceReviewManager({ userEmail, role, adminEmail, o
 
   const upsert = async (row) => {
     setSaving(true);
-    if (row.id == null) {
-      const { error } = await supabase.from("review_number").insert(toDbRow(row));
+    const fixed = { ...row, approver: FIXED_APPROVER };
+    if (fixed.id == null) {
+      const { error } = await supabase.from("review_number").insert(toDbRow(fixed));
       if (error) alert("저장 실패: " + error.message);
     } else {
-      const { error } = await supabase.from("review_number").update(toDbRow(row)).eq("id", row.id);
+      const { error } = await supabase.from("review_number").update(toDbRow(fixed)).eq("id", fixed.id);
       if (error) alert("수정 실패: " + error.message);
     }
     setSaving(false);
@@ -224,6 +226,7 @@ export default function ComplianceReviewManager({ userEmail, role, adminEmail, o
         toDbRow({
           ...p,
           category: "사내준법",
+          approver: FIXED_APPROVER,
           review_no: `${ORG_PREFIX} 제${year}-${String(max + 1 + i).padStart(4, "0")}호`,
         })
       );
@@ -601,7 +604,11 @@ function EditModal({ initial, onClose, onSave, suggestNo, saving }) {
           <Field label="유효기간 시작"><input type="date" value={f.valid_from} onChange={(e) => set("valid_from", e.target.value)} className={inp} /></Field>
           <Field label="유효기간 종료"><input type="date" value={f.valid_to} onChange={(e) => set("valid_to", e.target.value)} className={inp} /></Field>
           <Field label="담당자"><input value={f.applicant} onChange={(e) => set("applicant", e.target.value)} className={inp} /></Field>
-          <Field label="승인자 (준법감시인)"><input value={f.approver} onChange={(e) => set("approver", e.target.value)} className={inp} /></Field>
+          <Field label="승인자 (준법감시인)">
+            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              {FIXED_APPROVER} <span className="ml-1.5 text-xs text-slate-400">· 고정</span>
+            </div>
+          </Field>
 
           <Field label="사용처 (채널 + URL)" full>
             <div className="space-y-2">
