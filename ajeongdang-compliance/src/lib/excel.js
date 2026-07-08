@@ -49,7 +49,7 @@ export function exportRows(rows, { filenameBase }) {
 export function downloadUploadTemplate() {
   const headers = [
     "자료명(필수)", "매체(필수)", "상품/제휴사", "신청일", "심의일",
-    "심의결과", "유효시작", "유효종료", "담당자", "사용처URL", "비고",
+    "심의결과", "유효시작", "유효종료", "담당자", "승인자", "사용처URL", "비고",
   ];
   const example = [
     "제휴카드 X 보험 크로스셀 블로그 3월호",
@@ -61,6 +61,7 @@ export function downloadUploadTemplate() {
     "2026-03-05",
     "2026-06-05",
     "정담당",
+    "준법감시인 정기원",
     "https://blog.naver.com/ajeongdang/223011",
     "비고 예시(비워도 됨)",
   ];
@@ -78,7 +79,7 @@ export function downloadUploadTemplate() {
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws["!cols"] = [
     { wch: 36 }, { wch: 12 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
-    { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 40 }, { wch: 24 },
+    { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 40 }, { wch: 24 },
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "사내준법_업로드양식");
@@ -126,6 +127,7 @@ export async function parseUploadFile(file) {
       valid_from: normDate(pick(raw, ["유효시작"])),
       valid_to: normDate(pick(raw, ["유효종료"])),
       applicant: String(pick(raw, ["담당자"])).trim(),
+      approver: String(pick(raw, ["승인자"])).trim(),
       note: String(pick(raw, ["비고"])).trim(),
       usages: url ? [{ channel: media, url }] : [],
     });

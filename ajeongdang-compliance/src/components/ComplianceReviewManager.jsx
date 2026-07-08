@@ -224,7 +224,6 @@ export default function ComplianceReviewManager({ userEmail, role, adminEmail, o
         toDbRow({
           ...p,
           category: "사내준법",
-          approver: "",
           review_no: `${ORG_PREFIX} 제${year}-${String(max + 1 + i).padStart(4, "0")}호`,
         })
       );
@@ -255,55 +254,61 @@ export default function ComplianceReviewManager({ userEmail, role, adminEmail, o
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      <div className="mx-auto max-w-7xl px-5 py-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src="/ajd-logo.webp" alt="아정당" className="h-8 w-auto" />
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-brand">아정당 · 준법감시팀</p>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">준법심의번호 통합 관리</h1>
-              <p className="text-sm text-slate-500">내부심의(사내 준법감시) · 외부심의(생명·손해보험협회) 통합 관리</p>
+      <div className="flex">
+        {/* 좌측 사이드바 */}
+        <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-slate-200 bg-white">
+          <div className="flex items-center gap-2 px-5 py-5">
+            <img src="/ajd-logo.webp" alt="아정당" className="h-7 w-auto" />
+            <div className="leading-tight">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">아정당 준법감시팀</p>
+              <p className="text-sm font-bold text-slate-900">준법심의번호</p>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <button onClick={() => setAdminOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-brand-100 bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100">
-                  <Users size={16} /> 직원 관리
-                </button>
-              )}
-              {canEdit && (
-                <button onClick={() => setEditing(emptyRow(tab === "내부" ? INTERNAL_CAT : "생보협회"))}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark">
-                  <Plus size={16} /> 심의 등록
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="max-w-[160px] truncate">{userEmail}</span>
-              <button onClick={onSignOut} className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-slate-100 hover:text-slate-700">
-                <LogOut size={13} /> 로그아웃
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {/* 내부/외부 심의 탭 (우측) */}
-        <div className="mb-4 flex justify-end">
-          <div className="inline-flex rounded-lg bg-white p-1 ring-1 ring-slate-200">
+          <nav className="flex-1 space-y-1 px-3 py-2">
+            {canEdit && (
+              <button onClick={() => setEditing(emptyRow(tab === "내부" ? INTERNAL_CAT : "생보협회"))}
+                className="flex w-full items-center gap-2 rounded-lg bg-brand px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-dark">
+                <Plus size={16} /> 심의 등록
+              </button>
+            )}
             {["내부", "외부"].map((t) => (
               <button key={t} onClick={() => { setTab(t); resetFilters(); }}
-                className={`rounded-md px-4 py-1.5 text-sm font-semibold transition ${
-                  tab === t ? "bg-brand text-white shadow-sm" : "text-slate-500 hover:text-slate-800"
+                className={`flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                  tab === t ? "bg-brand-50 text-brand-700 ring-1 ring-brand-100" : "text-slate-600 hover:bg-slate-50"
                 }`}>
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${tab === t ? "bg-brand" : "bg-slate-300"}`} />
                 {t}심의
               </button>
             ))}
-          </div>
-        </div>
+            {isAdmin && (
+              <button onClick={() => setAdminOpen(true)}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50">
+                <Users size={16} /> 직원 관리
+              </button>
+            )}
+          </nav>
 
-        {/* KPI 슬림 배지 */}
+          <div className="border-t border-slate-100 px-4 py-3">
+            <div className="truncate text-xs text-slate-500" title={userEmail}>{userEmail}</div>
+            <button onClick={onSignOut} className="mt-1 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-slate-700">
+              <LogOut size={13} /> 로그아웃
+            </button>
+          </div>
+        </aside>
+
+        {/* 메인 콘텐츠 */}
+        <main className="min-w-0 flex-1">
+          <div className="mx-auto max-w-6xl px-6 py-8">
+            <div className="mb-5">
+              <h1 className="text-2xl font-bold tracking-tight text-slate-900">{tab}심의 관리</h1>
+              <p className="text-sm text-slate-500">
+                {tab === "내부" ? "사내 준법감시 심의필" : "생명·손해보험협회 심의필"}
+              </p>
+            </div>
+
+            {/* KPI 슬림 배지 */}
+
         <div className="mb-5 flex divide-x divide-slate-200 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200">
           {tiles.map((t) => (
             <button key={t.label} onClick={t.onClick}
@@ -380,7 +385,7 @@ export default function ComplianceReviewManager({ userEmail, role, adminEmail, o
                 )}
                 {!loading && !loadError && filtered.length === 0 && (
                   <tr><td colSpan={8} className="px-4 py-14 text-center text-sm text-slate-400">
-                    표시할 심의 건이 없습니다. 우측 상단 "심의 등록"으로 추가하세요.
+                    표시할 심의 건이 없습니다. 좌측 사이드바 "심의 등록"으로 추가하세요.
                   </td></tr>
                 )}
                 {!loading && filtered.map((r) => {
@@ -486,6 +491,8 @@ export default function ComplianceReviewManager({ userEmail, role, adminEmail, o
           ※ 행을 클릭하면 상세가 펼쳐집니다. 사내준법 번호는 등록 시 자동 생성(수정 가능), 협회 번호는 수동 입력.
           만료임박·만료 건은 상단 배지에서 바로 필터링됩니다.
         </p>
+          </div>
+        </main>
       </div>
 
       {adminOpen && isAdmin && (
